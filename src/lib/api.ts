@@ -12,7 +12,7 @@ export type ApiResponse = {
   attempts?: number;
 };
 
-const DEFAULT_TIMEOUT_MS = 15_000;
+const DEFAULT_TIMEOUT_MS = 45_000;
 const DEFAULT_RETRY_ATTEMPTS = 3;
 const DEFAULT_RETRY_BASE_DELAY_MS = 1_000;
 const DEFAULT_RETRY_MAX_DELAY_MS = 8_000;
