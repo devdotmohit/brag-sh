@@ -1,6 +1,6 @@
 {
-  "name": "brag-sh",
-	"version": "0.1.0",
+	"name": "brag-sh",
+	"version": "0.1.1",
 	"type": "module",
 	"bin": {
 		"brag": "dist/index.js"

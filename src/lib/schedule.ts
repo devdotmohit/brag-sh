@@ -101,14 +101,14 @@ function escapeXml(value: string): string {
     .replace(/'/g, "&apos;");
 }
 
-function escapeSystemdArg(value: string): string {
+export function formatSystemdArg(value: string): string {
   if (!/[\s"]/u.test(value)) {
     return value;
   }
   return `"${value.replace(/"/g, '\\"')}"`;
 }
 
-function quoteWindowsArg(value: string): string {
+export function formatWindowsArg(value: string): string {
   if (!/[\s"]/u.test(value)) {
     return value;
   }
@@ -146,7 +146,7 @@ ${argsXml}
 
 function buildSystemdService(command: ScheduleCommand): string {
   const execLine = [command.exe, ...command.args]
-    .map((arg) => escapeSystemdArg(arg))
+    .map((arg) => formatSystemdArg(arg))
     .join(" ");
   return `[Unit]
 Description=Brag usage sync
@@ -188,7 +188,7 @@ function getSystemdPaths(): { service: string; timer: string } {
 }
 
 function getWindowsCommandLine(command: ScheduleCommand): { exe: string; args: string } {
-  const args = command.args.map((arg) => quoteWindowsArg(arg)).join(" ");
+  const args = command.args.map((arg) => formatWindowsArg(arg)).join(" ");
   return {
     exe: command.exe,
     args,

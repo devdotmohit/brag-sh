@@ -1,6 +1,7 @@
 import { postSyncPayloadWithRetry, resolveSyncUrl } from "../lib/api";
 import { recordAuthError, resolveAuthToken } from "../lib/auth";
 import { readConfig } from "../lib/config";
+import { getOrCreateDeviceId } from "../lib/device";
 import { buildErrorContext, debugLog } from "../lib/diagnostics";
 import { buildSyncPayload } from "../lib/payload";
 import { enqueuePayload, readQueue, updateQueue } from "../lib/queue";
@@ -241,7 +242,8 @@ async function runSyncOnce(options: SyncOptions): Promise<SyncResult> {
   );
   const days = new Set(Object.keys(nextDailyTotals).map((key) => key.split("::")[0]));
   const models = new Set(Object.keys(nextDailyTotals).map((key) => key.split("::")[1]));
-  const payload = buildSyncPayload(nextDailyTotals, nowIso);
+  const deviceId = getOrCreateDeviceId();
+  const payload = buildSyncPayload(nextDailyTotals, { generatedAt: nowIso, deviceId });
 
   const summary = buildSummary(
     parsed.records.length,
@@ -630,7 +632,8 @@ export async function sync(_args: string[]): Promise<number> {
   }
 
   if (dumpPayload) {
-    console.log(JSON.stringify(result.payload ?? buildSyncPayload({}), null, 2));
+    const fallback = buildSyncPayload({}, { deviceId: getOrCreateDeviceId() });
+    console.log(JSON.stringify(result.payload ?? fallback, null, 2));
     console.log("");
   }
 
