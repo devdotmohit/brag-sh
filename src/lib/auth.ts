@@ -150,7 +150,7 @@ export function upsertAuthProfile(params: {
   const profile: AuthProfile = {
     id: profileId,
     label,
-    provider: params.provider ?? existing?.provider ?? "x",
+    provider: params.provider ?? existing?.provider ?? "github",
     account: params.account ?? existing?.account,
     token: params.token,
     createdAt: existing?.createdAt ?? now,

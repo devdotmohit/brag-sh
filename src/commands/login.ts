@@ -8,6 +8,7 @@ import { printDisclosure } from "../lib/disclosure";
 import { pollDeviceToken, requestDeviceCode, resolveOAuthConfig } from "../lib/oauth";
 import { logEvent } from "../lib/logger";
 import { disableSchedule, enableSchedule } from "../lib/schedule";
+import { sync } from "./sync";
 
 function parseArgValue(args: string[], flag: string): string | undefined {
   const index = args.indexOf(flag);
@@ -227,16 +228,23 @@ export async function login(args: string[]): Promise<number> {
       return 1;
     }
 
+    const verificationUrl = device.verificationUriComplete ?? device.verificationUri;
+    const canPrompt = process.stdin.isTTY && process.stdout.isTTY;
+
     console.log("Complete OAuth in your browser:");
     console.log(`- Verification URL: ${device.verificationUri}`);
-    console.log(`- User code: ${device.userCode}`);
     if (device.verificationUriComplete) {
       console.log(`- Direct URL: ${device.verificationUriComplete}`);
-      if (open) {
-        openBrowser(device.verificationUriComplete);
+    }
+    console.log(`- User code: ${device.userCode}`);
+
+    if (open) {
+      openBrowser(verificationUrl);
+    } else if (canPrompt) {
+      const answer = await prompt("Press Enter to open the verification URL in your browser: ");
+      if (!answer.trim()) {
+        openBrowser(verificationUrl);
       }
-    } else if (open) {
-      openBrowser(device.verificationUri);
     }
     console.log("");
     console.log("Waiting for authorization...");
@@ -281,6 +289,9 @@ export async function login(args: string[]): Promise<number> {
 
   console.log(`Stored credentials for profile ${profile.label}.`);
   await maybePromptSyncMode(args);
+  console.log("");
+  console.log("Running initial sync...");
+  await sync([]);
   console.log("");
   printDisclosure();
   return 0;

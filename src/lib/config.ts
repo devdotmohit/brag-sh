@@ -21,8 +21,30 @@ export type Config = {
 
 const DEFAULT_CONFIG: Config = {
   version: 1,
-  apiBaseUrl: "https://brag.sh",
+  apiBaseUrl: "https://usageleaderboard.com",
 };
+
+const LOCAL_API_DEFAULT = "http://localhost:4321";
+
+function resolveLocalApiBaseUrl(): string | undefined {
+  const raw = process.env.BRAG_LOCAL_API;
+  if (!raw) {
+    return undefined;
+  }
+  const trimmed = raw.trim();
+  const normalized = trimmed.toLowerCase();
+  if (!normalized || ["0", "false", "no", "off"].includes(normalized)) {
+    return undefined;
+  }
+  if (normalized.startsWith("http://") || normalized.startsWith("https://")) {
+    return trimmed;
+  }
+  return LOCAL_API_DEFAULT;
+}
+
+export function resolveApiBaseUrl(config: Config): string | undefined {
+  return resolveLocalApiBaseUrl() ?? config.apiBaseUrl ?? process.env.BRAG_API_BASE_URL;
+}
 
 function resolveConfigDir(): string {
   const home = homedir();

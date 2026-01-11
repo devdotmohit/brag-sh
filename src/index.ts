@@ -15,7 +15,7 @@ type CommandDefinition = {
 
 const COMMANDS: Record<string, CommandDefinition> = {
   login: {
-    description: "Authenticate with X and store a token",
+    description: "Authenticate with GitHub and store a token",
     run: login,
   },
   status: {

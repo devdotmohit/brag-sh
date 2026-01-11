@@ -18,6 +18,7 @@ export type UsageDiscovery = {
 const USAGE_EXTENSIONS = new Set([".json", ".jsonl"]);
 const KNOWN_SUBDIRS = ["usage", "sessions"];
 const MAX_WALK_DEPTH = 4;
+const EXCLUDED_FILENAMES = new Set(["history.jsonl"]);
 
 function resolveCodexHome(): string {
   const envHome = process.env.CODEX_HOME;
@@ -34,6 +35,9 @@ function listUsageFiles(dir: string): UsageSource[] {
 
   for (const entry of entries) {
     if (!entry.isFile()) {
+      continue;
+    }
+    if (EXCLUDED_FILENAMES.has(entry.name)) {
       continue;
     }
     const lowerName = entry.name.toLowerCase();
@@ -63,6 +67,9 @@ function walkUsageFiles(dir: string, depth = 0): UsageSource[] {
       continue;
     }
     if (!entry.isFile()) {
+      continue;
+    }
+    if (EXCLUDED_FILENAMES.has(entry.name)) {
       continue;
     }
     const lowerName = entry.name.toLowerCase();

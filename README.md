@@ -1,6 +1,6 @@
-# Brag CLI
+# Usage Leaderboard CLI
 
-Brag CLI aggregates Codex usage locally and syncs daily totals to the Brag API.
+Usage Leaderboard CLI aggregates Codex usage locally and syncs daily totals to the Usage Leaderboard API.
 
 ## Install
 
@@ -16,7 +16,7 @@ The npm package name is `brag-sh`, but the installed command is `brag`.
 
 ```bash
 # set API base URL
-brag config set apiBaseUrl https://brag.sh
+brag config set apiBaseUrl https://usageleaderboard.com
 
 # authenticate (device login)
 brag login
@@ -87,7 +87,8 @@ Config keys are stored via `brag config` and can be overridden with env vars:
 
 | Config key | Env var | Notes |
 | --- | --- | --- |
-| `apiBaseUrl` | `BRAG_API_BASE_URL` | Defaults to `https://brag.sh`. |
+| `apiBaseUrl` | `BRAG_API_BASE_URL` | Defaults to `https://usageleaderboard.com`. |
+| `apiBaseUrl` | `BRAG_LOCAL_API` | Use `1`/`true` to force `http://localhost:4321`, or set a URL. |
 | `oauthClientId` | `BRAG_OAUTH_CLIENT_ID` | Required for device login. |
 | `oauthClientSecret` | `BRAG_OAUTH_CLIENT_SECRET` | Optional if provider allows. |
 | `oauthDeviceUrl` | `BRAG_OAUTH_DEVICE_URL` | Override device code endpoint. |

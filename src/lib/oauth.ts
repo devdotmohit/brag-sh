@@ -1,4 +1,5 @@
 import type { Config } from "./config";
+import { resolveApiBaseUrl } from "./config";
 
 export type OAuthConfig = {
   clientId: string;
@@ -57,7 +58,7 @@ function joinUrl(base: string, path: string): string {
 }
 
 export function resolveOAuthConfig(config: Config): { ok: true; config: OAuthConfig } | { ok: false; error: string } {
-  const apiBaseUrl = config.apiBaseUrl ?? process.env.BRAG_API_BASE_URL;
+  const apiBaseUrl = resolveApiBaseUrl(config);
   const derivedDeviceCodeUrl = apiBaseUrl ? joinUrl(apiBaseUrl, "/v1/oauth/device/code") : undefined;
   const derivedTokenUrl = apiBaseUrl ? joinUrl(apiBaseUrl, "/v1/oauth/device/token") : undefined;
 

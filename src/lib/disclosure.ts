@@ -1,8 +1,8 @@
-const REPO_URL = "https://github.com/bluppco/api-blupp-co";
+const REPO_URL = "https://github.com/devdotmohit/brag-sh";
 
 const DISCLOSURE_LINES = [
   "Data collection:",
-  "  Brag reads Codex usage logs under ~/.codex (or configured usagePath).",
+  "  Usage Leaderboard reads Codex usage logs under ~/.codex (or configured usagePath).",
   "  It only uploads aggregated daily token totals by model and token type,",
   "  plus a random device identifier for per-device rollups.",
   `Source: ${REPO_URL}`,

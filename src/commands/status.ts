@@ -226,7 +226,7 @@ export async function status(args: string[]): Promise<number> {
     return exitCode;
   }
 
-  console.log("Brag status");
+  console.log("Usage Leaderboard status");
   console.log("");
   console.log(`Config path: ${getConfigFilePath()}`);
   console.log(`Sync mode: ${config.syncMode ?? "unset"}`);

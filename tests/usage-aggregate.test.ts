@@ -60,6 +60,21 @@ describe("aggregateUsage", () => {
     expect(aggregated[0]?.tokens.output).toBe(3);
     expect(aggregated[0]?.tokens.total).toBe(10);
   });
+
+  test("treats cached input as a subset and includes thinking in totals", () => {
+    const records: UsageRecord[] = [
+      {
+        day: "2026-01-06",
+        model: "gpt-4",
+        source: "a",
+        tokens: { input: 10, output: 6, cache: 4, thinking: 2, total: 0 },
+        mode: "delta",
+      },
+    ];
+
+    const aggregated = aggregateUsage(records);
+    expect(aggregated[0]?.tokens.total).toBe(18);
+  });
 });
 
 describe("applyCumulativeAdjustments", () => {

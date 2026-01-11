@@ -149,7 +149,7 @@ function buildSystemdService(command: ScheduleCommand): string {
     .map((arg) => formatSystemdArg(arg))
     .join(" ");
   return `[Unit]
-Description=Brag usage sync
+Description=Usage Leaderboard usage sync
 Wants=network-online.target
 After=network-online.target
 
@@ -162,7 +162,7 @@ ExecStart=${execLine}
 
 function buildSystemdTimer(): string {
   return `[Unit]
-Description=Run Brag usage sync every ${SYNC_INTERVAL_MINUTES} minutes
+Description=Run Usage Leaderboard usage sync every ${SYNC_INTERVAL_MINUTES} minutes
 
 [Timer]
 OnBootSec=2min
@@ -220,7 +220,7 @@ function buildWindowsTaskXml(command: ScheduleCommand): string {
 <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo>
     <Author>brag</Author>
-    <Description>Sync Brag usage every ${SYNC_INTERVAL_MINUTES} minutes.</Description>
+    <Description>Sync Usage Leaderboard usage every ${SYNC_INTERVAL_MINUTES} minutes.</Description>
   </RegistrationInfo>
   <Triggers>
     <TimeTrigger>

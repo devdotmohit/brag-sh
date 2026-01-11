@@ -1,13 +1,12 @@
 {
   "lockfileVersion": 1,
+  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "cli",
       "devDependencies": {
         "@types/bun": "latest",
         "tsup": "^8.5.1",
-      },
-      "peerDependencies": {
         "typescript": "^5.9.3",
       },
     },

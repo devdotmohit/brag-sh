@@ -1,4 +1,5 @@
 import type { Config } from "./config";
+import { resolveApiBaseUrl } from "./config";
 import type { SyncPayload } from "./payload";
 import { sanitizeMessage } from "./diagnostics";
 import { readPackageVersion } from "./version";
@@ -88,7 +89,7 @@ function formatHttpStatusError(status: number): string {
 }
 
 export function resolveSyncUrl(config: Config): { url?: string; error?: string } {
-  const base = config.apiBaseUrl ?? process.env.BRAG_API_BASE_URL;
+  const base = resolveApiBaseUrl(config);
   if (!base) {
     return { error: "API base URL not configured." };
   }

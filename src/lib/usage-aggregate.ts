@@ -96,13 +96,25 @@ export function aggregateUsage(records: UsageRecord[]): AggregatedUsage[] {
 
   const aggregated = Array.from(byKey.values());
   for (const entry of aggregated) {
-    const baseSum = entry.tokens.input + entry.tokens.output;
-    if (baseSum > entry.tokens.total) {
+    const outputTotal = entry.tokens.output + entry.tokens.thinking;
+    // Cache is a subset of input; if cache exceeds input, treat input as uncached and add cache.
+    const inputTotal =
+      entry.tokens.cache > entry.tokens.input
+        ? entry.tokens.input + entry.tokens.cache
+        : entry.tokens.input > 0
+          ? entry.tokens.input
+          : entry.tokens.cache;
+    const baseSum = inputTotal + outputTotal;
+    if (baseSum > 0) {
       entry.tokens.total = baseSum;
       continue;
     }
     if (entry.tokens.total === 0) {
-      const fallbackSum = entry.tokens.cache + entry.tokens.thinking;
+      const fallbackSum =
+        entry.tokens.input +
+        entry.tokens.output +
+        entry.tokens.cache +
+        entry.tokens.thinking;
       if (fallbackSum > 0) {
         entry.tokens.total = fallbackSum;
       }
