@@ -11,14 +11,14 @@ describe("aggregateUsage", () => {
         day: "2026-01-02",
         model: "gpt-4",
         source: "a",
-        tokens: { input: 10, output: 5, total: 0 },
+        tokens: { input: 10, output: 5 },
         mode: "delta",
       },
       {
         day: "2026-01-02",
         model: "gpt-4",
         source: "b",
-        tokens: { input: 3, output: 2, total: 4 },
+        tokens: { input: 3, output: 2 },
         mode: "delta",
       },
     ];
@@ -30,7 +30,7 @@ describe("aggregateUsage", () => {
     expect(aggregated[0]?.tokens.total).toBe(20);
   });
 
-  test("uses max per source for cumulative records", () => {
+  test("ignores cumulative records", () => {
     const records: UsageRecord[] = [
       {
         day: "2026-01-03",
@@ -39,29 +39,13 @@ describe("aggregateUsage", () => {
         tokens: { input: 5, output: 2, total: 7 },
         mode: "cumulative",
       },
-      {
-        day: "2026-01-03",
-        model: "gpt-4",
-        source: "source-a",
-        tokens: { input: 3, output: 1, total: 4 },
-        mode: "cumulative",
-      },
-      {
-        day: "2026-01-03",
-        model: "gpt-4",
-        source: "source-b",
-        tokens: { input: 2, output: 1, total: 3 },
-        mode: "cumulative",
-      },
     ];
 
     const aggregated = aggregateUsage(records);
-    expect(aggregated[0]?.tokens.input).toBe(7);
-    expect(aggregated[0]?.tokens.output).toBe(3);
-    expect(aggregated[0]?.tokens.total).toBe(10);
+    expect(aggregated).toHaveLength(0);
   });
 
-  test("treats cached input as a subset and includes thinking in totals", () => {
+  test("does not double count cache or thinking in totals", () => {
     const records: UsageRecord[] = [
       {
         day: "2026-01-06",
@@ -73,13 +57,13 @@ describe("aggregateUsage", () => {
     ];
 
     const aggregated = aggregateUsage(records);
-    expect(aggregated[0]?.tokens.total).toBe(18);
+    expect(aggregated[0]?.tokens.total).toBe(16);
   });
 });
 
 describe("applyCumulativeAdjustments", () => {
-  test("emits deltas and skips idempotent cumulative updates", () => {
-    const base: UsageRecord = {
+  test("drops cumulative records and warns", () => {
+    const record: UsageRecord = {
       day: "2026-01-04",
       model: "gpt-4",
       source: "source-a",
@@ -87,34 +71,7 @@ describe("applyCumulativeAdjustments", () => {
       mode: "cumulative",
     };
 
-    const first = applyCumulativeAdjustments([base], {});
-    expect(first.records).toHaveLength(1);
-    expect(first.records[0]?.tokens.total).toBe(15);
-
-    const second = applyCumulativeAdjustments([base], first.cumulative);
-    expect(second.records).toHaveLength(0);
-  });
-
-  test("handles cumulative resets by clamping deltas to zero", () => {
-    const record: UsageRecord = {
-      day: "2026-01-05",
-      model: "gpt-4",
-      source: "source-a",
-      tokens: { input: 5, output: 5, total: 10 },
-      mode: "cumulative",
-    };
-
-    const previous = {
-      "source-a::2026-01-05::gpt-4": {
-        input: 7,
-        output: 8,
-        cache: 0,
-        thinking: 0,
-        total: 15,
-      },
-    };
-
-    const adjusted = applyCumulativeAdjustments([record], previous);
+    const adjusted = applyCumulativeAdjustments([record], {});
     expect(adjusted.records).toHaveLength(0);
     expect(adjusted.warnings.length).toBeGreaterThan(0);
   });

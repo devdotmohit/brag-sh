@@ -4,10 +4,11 @@ import { createInterface } from "node:readline";
 
 import type { FileCursor } from "./cursor";
 import type { UsageSource } from "./usage";
-import type { TokenTotals } from "./usage-types";
+import type { RequiredTotals, TokenTotals } from "./usage-types";
 
 export type UsageRecord = {
   day: string;
+  timestamp?: string;
   model: string;
   tokens: TokenTotals;
   source: string;
@@ -62,12 +63,10 @@ const TOKEN_FIELD_MAP: Record<keyof TokenTotals, string[]> = {
     "responseTokens",
   ],
   cache: [
-    "cache_tokens",
-    "cacheTokens",
-    "cached_tokens",
-    "cachedTokens",
     "cached_input_tokens",
     "cachedInputTokens",
+    "cache_read_input_tokens",
+    "cacheReadInputTokens",
   ],
   thinking: [
     "thinking_tokens",
@@ -172,6 +171,30 @@ function parseTimestamp(value: number): string | null {
   return date.toISOString().slice(0, 10);
 }
 
+function parseTimestampWithTime(value: number): string | null {
+  if (!Number.isFinite(value)) {
+    return null;
+  }
+  const ms = value > 1_000_000_000_000 ? value : value * 1000;
+  const date = new Date(ms);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return date.toISOString();
+}
+
+function parseTimeString(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+  return parsed.toISOString();
+}
+
 function extractDay(obj: Record<string, unknown>): string | null {
   for (const key of DAY_KEYS) {
     const value = obj[key];
@@ -211,6 +234,35 @@ function extractDay(obj: Record<string, unknown>): string | null {
     }
   }
 
+  return null;
+}
+
+function extractTimestamp(obj: Record<string, unknown>): string | null {
+  const contexts = collectContexts(obj);
+  for (const ctx of contexts) {
+    for (const key of TIME_KEYS) {
+      const value = ctx[key];
+      if (typeof value === "number") {
+        const parsed = parseTimestampWithTime(value);
+        if (parsed) {
+          return parsed;
+        }
+      }
+      if (typeof value === "string") {
+        const asNumber = Number(value);
+        if (!Number.isNaN(asNumber)) {
+          const parsed = parseTimestampWithTime(asNumber);
+          if (parsed) {
+            return parsed;
+          }
+        }
+        const parsed = parseTimeString(value);
+        if (parsed) {
+          return parsed;
+        }
+      }
+    }
+  }
   return null;
 }
 
@@ -301,12 +353,8 @@ function extractTokenUsageObject(
 }
 
 function extractTokens(obj: Record<string, unknown>): TokenExtraction | null {
-  const contexts = collectContexts(obj);
   const eventUsage = extractTokenUsageObject(obj);
-
-  if (eventUsage) {
-    contexts.unshift(eventUsage.usage);
-  }
+  const contexts = eventUsage ? [eventUsage.usage] : collectContexts(obj);
 
   const totals: TokenTotals = {};
 
@@ -336,12 +384,40 @@ function extractTokens(obj: Record<string, unknown>): TokenExtraction | null {
   if (eventUsage?.mode === "total") {
     return {
       tokens: totals,
-      warning: "Using total_token_usage; this may be cumulative for the session.",
+      warning: "Using total_token_usage (cumulative).",
       mode: "cumulative",
     };
   }
 
   return { tokens: totals, mode: "delta" };
+}
+
+function clampNonNegative(value: number | undefined): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.max(0, value);
+}
+
+function normalizeTokenTotals(totals: TokenTotals): RequiredTotals {
+  const input = clampNonNegative(totals.input);
+  const output = clampNonNegative(totals.output);
+  let cache = clampNonNegative(totals.cache);
+  let thinking = clampNonNegative(totals.thinking);
+  const totalProvided = typeof totals.total === "number" && Number.isFinite(totals.total);
+  let total = totalProvided ? clampNonNegative(totals.total) : 0;
+
+  if (cache > input) {
+    cache = input;
+  }
+  if (thinking > output) {
+    thinking = output;
+  }
+  if (!totalProvided) {
+    total = input + output;
+  }
+
+  return { input, output, cache, thinking, total };
 }
 
 function normalizeRecord(
@@ -378,16 +454,114 @@ function normalizeRecord(
     warnings.push(tokenExtraction.warning);
   }
 
+  const timestamp = extractTimestamp(value);
+  const normalizedTokens = normalizeTokenTotals(tokenExtraction.tokens);
+
   return {
     record: {
       day,
+      ...(timestamp ? { timestamp } : {}),
       model,
-      tokens: tokenExtraction.tokens,
+      tokens: normalizedTokens,
       source,
       mode: tokenExtraction.mode,
     },
     warnings,
   };
+}
+
+const SIGNATURE_WINDOW = 200;
+
+function toRequiredTotals(totals: TokenTotals): RequiredTotals {
+  return {
+    input: totals.input ?? 0,
+    output: totals.output ?? 0,
+    cache: totals.cache ?? 0,
+    thinking: totals.thinking ?? 0,
+    total: totals.total ?? 0,
+  };
+}
+
+function subtractTotals(current: RequiredTotals, previous: RequiredTotals): RequiredTotals {
+  return {
+    input: Math.max(0, current.input - previous.input),
+    output: Math.max(0, current.output - previous.output),
+    cache: Math.max(0, current.cache - previous.cache),
+    thinking: Math.max(0, current.thinking - previous.thinking),
+    total: Math.max(0, current.total - previous.total),
+  };
+}
+
+function isZeroTotals(totals: RequiredTotals): boolean {
+  return (
+    totals.input === 0 &&
+    totals.output === 0 &&
+    totals.cache === 0 &&
+    totals.thinking === 0 &&
+    totals.total === 0
+  );
+}
+
+function buildRecordSignature(record: UsageRecord): string | null {
+  if (!record.timestamp) {
+    return null;
+  }
+  const totals = toRequiredTotals(record.tokens);
+  return `${record.timestamp}|${totals.input}|${totals.output}|${totals.cache}|${totals.thinking}|${totals.total}`;
+}
+
+function applyFileAdjustments(
+  records: UsageRecord[],
+  cursor?: FileCursor
+): {
+  records: UsageRecord[];
+  warnings: string[];
+  lastCumulativeTotals?: RequiredTotals;
+  lastSignatures: string[];
+} {
+  const warnings: string[] = [];
+  const signatureQueue = [...(cursor?.lastSignatures ?? [])];
+  let signatureSet = new Set(signatureQueue);
+  let lastCumulativeTotals = cursor?.lastCumulativeTotals;
+  const adjusted: UsageRecord[] = [];
+
+  for (const record of records) {
+    const signature = buildRecordSignature(record);
+    if (signature) {
+      if (signatureSet.has(signature)) {
+        continue;
+      }
+      signatureQueue.push(signature);
+      signatureSet.add(signature);
+      if (signatureQueue.length > SIGNATURE_WINDOW) {
+        signatureQueue.splice(0, signatureQueue.length - SIGNATURE_WINDOW);
+        signatureSet = new Set(signatureQueue);
+      }
+    }
+
+    if (record.mode === "cumulative") {
+      const currentTotals = toRequiredTotals(record.tokens);
+      if (!lastCumulativeTotals) {
+        lastCumulativeTotals = currentTotals;
+        continue;
+      }
+      const delta = subtractTotals(currentTotals, lastCumulativeTotals);
+      lastCumulativeTotals = currentTotals;
+      if (isZeroTotals(delta)) {
+        continue;
+      }
+      adjusted.push({
+        ...record,
+        tokens: delta,
+        mode: "delta",
+      });
+      continue;
+    }
+
+    adjusted.push(record);
+  }
+
+  return { records: adjusted, warnings, lastCumulativeTotals, lastSignatures: signatureQueue };
 }
 
 function extractEntries(value: unknown): unknown[] {
@@ -450,6 +624,8 @@ async function parseJsonLinesFileWithCursor(
   const warnings: string[] = [];
   const stats = statSync(filePath);
   let lastModel: string | null = cursor?.lastModel ?? null;
+  let lastCumulativeTotals = cursor?.lastCumulativeTotals;
+  let lastSignatures = cursor?.lastSignatures;
 
   if (
     cursor &&
@@ -464,6 +640,8 @@ async function parseJsonLinesFileWithCursor(
     warnings.push("File size shrank; resetting cursor.");
     startLine = 0;
     lastModel = null;
+    lastCumulativeTotals = undefined;
+    lastSignatures = undefined;
   }
 
   const stream = createReadStream(filePath, { encoding: "utf8" });
@@ -507,11 +685,21 @@ async function parseJsonLinesFileWithCursor(
     warnings.push("No token usage entries found in file.");
   }
 
+  const adjustments = applyFileAdjustments(records, {
+    lastCumulativeTotals,
+    lastSignatures,
+  });
+  records.length = 0;
+  records.push(...adjustments.records);
+  warnings.push(...adjustments.warnings);
+
   const nextCursor: FileCursor = {
     lastLine: lineNumber,
     lastSize: stats.size,
     lastMtimeMs: stats.mtimeMs,
     ...(lastModel ? { lastModel } : {}),
+    lastCumulativeTotals: adjustments.lastCumulativeTotals,
+    lastSignatures: adjustments.lastSignatures,
   };
 
   return { records, warnings, cursor: nextCursor };
@@ -532,12 +720,25 @@ async function parseJsonFileWithCursor(
 
   const result = await parseJsonFile(filePath);
   if (result.records.length > 0 || result.warnings.length === 0) {
+    let lastCumulativeTotals = cursor?.lastCumulativeTotals;
+    let lastSignatures = cursor?.lastSignatures;
+    if (cursor?.lastSize !== undefined && stats.size < cursor.lastSize) {
+      lastCumulativeTotals = undefined;
+      lastSignatures = undefined;
+    }
+    const adjustments = applyFileAdjustments(result.records, {
+      lastCumulativeTotals,
+      lastSignatures,
+    });
     return {
-      ...result,
+      records: adjustments.records,
+      warnings: [...result.warnings, ...adjustments.warnings],
       cursor: {
         lastLine: 1,
         lastSize: stats.size,
         lastMtimeMs: stats.mtimeMs,
+        lastCumulativeTotals: adjustments.lastCumulativeTotals,
+        lastSignatures: adjustments.lastSignatures,
       },
     };
   }
