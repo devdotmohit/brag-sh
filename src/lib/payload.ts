@@ -10,15 +10,17 @@ export type SyncPayload = {
   version: 1;
   generatedAt: string;
   deviceId?: string;
+  deviceName?: string;
   totals: SyncPayloadEntry[];
 };
 
 export function buildSyncPayload(
   dailyTotals: Record<string, RequiredTotals>,
-  options: { generatedAt?: string; deviceId?: string } = {}
+  options: { generatedAt?: string; deviceId?: string; deviceName?: string } = {}
 ): SyncPayload {
   const generatedAt = options.generatedAt ?? new Date().toISOString();
   const deviceId = options.deviceId?.trim() || undefined;
+  const deviceName = options.deviceName?.trim() || undefined;
   const totals: SyncPayloadEntry[] = Object.entries(dailyTotals).map(
     ([key, tokens]) => {
       const [day, model] = key.split("::");
@@ -41,6 +43,7 @@ export function buildSyncPayload(
     version: 1,
     generatedAt,
     ...(deviceId ? { deviceId } : {}),
+    ...(deviceName ? { deviceName } : {}),
     totals,
   };
 }

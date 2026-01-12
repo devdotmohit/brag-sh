@@ -1,7 +1,7 @@
 import { postSyncPayloadWithRetry, resolveSyncUrl } from "../lib/api";
 import { recordAuthError, resolveAuthToken } from "../lib/auth";
 import { readConfig } from "../lib/config";
-import { getOrCreateDeviceId } from "../lib/device";
+import { getOrCreateDeviceInfo } from "../lib/device";
 import { buildErrorContext, debugLog } from "../lib/diagnostics";
 import { buildSyncPayload } from "../lib/payload";
 import { enqueuePayload, readQueue, updateQueue } from "../lib/queue";
@@ -242,8 +242,12 @@ async function runSyncOnce(options: SyncOptions): Promise<SyncResult> {
   );
   const days = new Set(Object.keys(nextDailyTotals).map((key) => key.split("::")[0]));
   const models = new Set(Object.keys(nextDailyTotals).map((key) => key.split("::")[1]));
-  const deviceId = getOrCreateDeviceId();
-  const payload = buildSyncPayload(nextDailyTotals, { generatedAt: nowIso, deviceId });
+  const deviceInfo = getOrCreateDeviceInfo();
+  const payload = buildSyncPayload(nextDailyTotals, {
+    generatedAt: nowIso,
+    deviceId: deviceInfo.deviceId,
+    deviceName: deviceInfo.deviceName,
+  });
 
   const summary = buildSummary(
     parsed.records.length,
@@ -632,7 +636,11 @@ export async function sync(_args: string[]): Promise<number> {
   }
 
   if (dumpPayload) {
-    const fallback = buildSyncPayload({}, { deviceId: getOrCreateDeviceId() });
+    const fallbackInfo = getOrCreateDeviceInfo();
+    const fallback = buildSyncPayload(
+      {},
+      { deviceId: fallbackInfo.deviceId, deviceName: fallbackInfo.deviceName }
+    );
     console.log(JSON.stringify(result.payload ?? fallback, null, 2));
     console.log("");
   }
