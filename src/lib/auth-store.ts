@@ -3,7 +3,7 @@ import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-import type { AuthProfile, AuthState } from "./auth-types";
+import type { AuthState } from "./auth-types";
 import { getConfigDir } from "./config";
 
 type AuthEnvelope = {
@@ -169,14 +169,6 @@ function isAuthEnvelope(value: unknown): value is AuthEnvelope {
   return record.encrypted === true && typeof record.ciphertext === "string";
 }
 
-function isLegacyAuth(value: unknown): value is { accessToken: string } {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  const record = value as Record<string, unknown>;
-  return typeof record.accessToken === "string";
-}
-
 function coerceAuthState(value: AuthState): AuthState {
   if (!value || typeof value !== "object") {
     return { ...EMPTY_STATE };
@@ -185,36 +177,6 @@ function coerceAuthState(value: AuthState): AuthState {
     version: 1,
     activeProfileId: value.activeProfileId,
     profiles: value.profiles ?? {},
-  };
-}
-
-function migrateLegacyAuth(record: Record<string, unknown>): AuthState {
-  const now = new Date().toISOString();
-  const accessToken = String(record.accessToken ?? "");
-  const createdAt = typeof record.createdAt === "string" ? record.createdAt : now;
-  const expiresAt = typeof record.expiresAt === "string" ? record.expiresAt : undefined;
-  const tokenType = typeof record.tokenType === "string" ? record.tokenType : "Bearer";
-
-  const profile: AuthProfile = {
-    id: "default",
-    label: "default",
-    provider: "x",
-    token: {
-      accessToken,
-      tokenType,
-      createdAt,
-      expiresAt,
-    },
-    createdAt,
-    updatedAt: createdAt,
-  };
-
-  return {
-    version: 1,
-    activeProfileId: profile.id,
-    profiles: {
-      [profile.id]: profile,
-    },
   };
 }
 
@@ -237,14 +199,6 @@ export function readAuthState(): ReadResult {
       state: decryptEnvelope(parsed),
       exists: true,
       migrated: false,
-    };
-  }
-
-  if (isLegacyAuth(parsed)) {
-    return {
-      state: migrateLegacyAuth(parsed as Record<string, unknown>),
-      exists: true,
-      migrated: true,
     };
   }
 

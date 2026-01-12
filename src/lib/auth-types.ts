@@ -16,7 +16,7 @@ export type AuthError = {
 export type AuthProfile = {
   id: string;
   label: string;
-  provider: "github" | "x";
+  provider: "github";
   account?: {
     id?: string;
     handle?: string;
