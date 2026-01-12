@@ -28,7 +28,7 @@ describe("buildSyncPayload", () => {
           total: 6,
         },
       },
-      "2026-01-02T00:00:00.000Z"
+      { generatedAt: "2026-01-02T00:00:00.000Z" }
     );
 
     expect(payload.version).toBe(1);
